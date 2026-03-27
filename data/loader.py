@@ -1,5 +1,7 @@
 import pandas as pd
 
+from data.processing import DataProcessing
+
 class DataLoader:
     def __init__(self, raw_data_dir):
         self.raw_data_dir = raw_data_dir
@@ -37,6 +39,21 @@ class DataLoader:
         self.gap = pd.read_csv(url_gap, encoding='latin-1')
         return self.gap
     
+    def load_all(self):
+        return self.load_co2(), self.load_energy(), self.load_hdi(), self.load_gapminder()
+    
+    def load_and_process_all(self):
+        co2, nrj, hdi, _ = self.load_all()
+        processing = DataProcessing()
+        hdi_normalized = processing.normalize_hdi(hdi)
+        merged_data = processing.merge_datasets(co2, nrj, hdi_normalized)
+        return merged_data
+    
     def save_df(self, df, file_name):
         output_path = f"{self.raw_data_dir}/../processed/{file_name}"
         df.to_csv(output_path, index=False)
+        
+    def load_df(self, file_name):
+        input_path = f"{self.raw_data_dir}/../processed/{file_name}"
+        return pd.read_csv(input_path)
+        
