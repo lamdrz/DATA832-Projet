@@ -3,22 +3,39 @@ import pandas as pd
 class DataLoader:
     def __init__(self, raw_data_dir):
         self.raw_data_dir = raw_data_dir
+        
+        self.co2 = None
+        self.nrj = None
+        self.hdi = None
+        self.gap = None
 
     def load_co2(self):
+        if self.co2 is not None:
+            return self.co2
         url_co2 = (f"{self.raw_data_dir}/owid-co2-data.csv")
-        return pd.read_csv(url_co2)
+        self.co2 = pd.read_csv(url_co2, encoding='latin-1')
+        return self.co2
 
     def load_energy(self):
+        if self.nrj is not None:
+            return self.nrj
         url_nrj = (f"{self.raw_data_dir}/owid-energy-data.csv")
-        return pd.read_csv(url_nrj)
+        self.nrj = pd.read_csv(url_nrj, encoding='latin-1')
+        return self.nrj
 
     def load_hdi(self):
+        if self.hdi is not None:
+            return self.hdi
         url_hdi = (f"{self.raw_data_dir}/HDR23-24_Composite_indices_complete_time_series.csv")
-        return pd.read_csv(url_hdi)
+        self.hdi = pd.read_csv(url_hdi, encoding='latin-1')
+        return self.hdi
 
     def load_gapminder(self):
+        if self.gap is not None:
+            return self.gap
         url_gap = (f"{self.raw_data_dir}/gapminder_unfiltered.csv")
-        return pd.read_csv(url_gap)
+        self.gap = pd.read_csv(url_gap, encoding='latin-1')
+        return self.gap
     
     def save_df(self, df, file_name):
         output_path = f"{self.raw_data_dir}/../processed/{file_name}"
