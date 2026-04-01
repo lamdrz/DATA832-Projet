@@ -1,6 +1,6 @@
 import pandas as pd
 
-from data.processing import DataProcessing
+from src.data.processing import DataProcessing
 
 class DataLoader:
     def __init__(self, raw_data_dir):
