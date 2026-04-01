@@ -27,6 +27,8 @@ def setup_logging(base_dir, debug=False):
     )
 
 
-def get_logger(name) -> logging.Logger:
-    setup_logging()
+def get_logger(name, base_dir=None) -> logging.Logger:
+    if not base_dir:
+        base_dir=Path(__file__).parent.parent
+    setup_logging(base_dir)
     return logging.getLogger(name)
