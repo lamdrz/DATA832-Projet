@@ -1,7 +1,7 @@
 import logging
 import os
-
 from config.logger import get_logger
+from src.models.clustering import ClusteringAnalyzer
 from src.data.loader import DataLoader
 from src.data.processor import DataProcessing
 from src.models.reduction import DimensionalityReducer
@@ -15,6 +15,7 @@ def run_pipeline():
     loader = DataLoader(os.path.join(os.path.dirname(__file__), 'data/raw'))
     processor = DataProcessing()
     reducer = DimensionalityReducer()
+    cluster_analyzer = ClusteringAnalyzer()
     
     # Chargement des données
     data = loader.load_and_process_all(processor)
@@ -42,6 +43,12 @@ def run_pipeline():
     ica_model, S_ica, ica_features = reducer.run_ica(cleaned_data, n_components=3)
     if ica_model is not None:
         reducer.plot_ica_components(ica_model, ica_features)
+
+    #On prépare les données (On utilise les variables de l'ACP pour le clustering)
+    X_scaled, y_hdi, y_gdp, df_cluster = cluster_analyzer.prepare_labels_and_data(cleaned_data)
+
+    #On trace Coude + Silhouette pour choisir le bon nombre de clusters
+    cluster_analyzer.find_optimal_kmeans(X_scaled, max_k=8)
 
 
 if __name__ == "__main__":
