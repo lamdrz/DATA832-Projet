@@ -59,6 +59,9 @@ class DataProcessing:
         
         # On garde que la fenetre qui nous intéresse
         df_clean = df[df['year'].isin(self.target_years)].copy()
+
+        if 'gdp_x' in df_clean.columns and 'population_x' in df_clean.columns:
+            df_clean['gdp_per_capita'] = df_clean['gdp_x'] / df_clean['population_x']
         
         # On garde que les colonnes qui nous intéressent
         cols_present = [c for c in self.columns_to_keep if c in df_clean.columns]
