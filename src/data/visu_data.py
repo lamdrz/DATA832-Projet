@@ -2,10 +2,53 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+COLUMNS_TO_KEEP = (
+	'country', 'iso_code', 'year',
+
+	# Pour l'ICA
+	'co2', 'co2_per_capita', 'coal_co2', 'oil_co2', 'gas_co2', 'cement_co2',
+
+	# Pour la NMF (>= 0)
+	 'coal_consumption', 'gas_consumption',
+	'oil_consumption', 'renewables_consumption', 'nuclear_consumption',
+
+	# Pour l'ACP et le clustering
+	'hdi_value', 'hdicode'
+)
+
+PCA_FEATURES = (
+	'hdi_value',
+	'co2_per_capita',
+	'coal_co2',
+	'oil_co2',
+	'gas_co2',
+	'cement_co2',
+	'coal_consumption',
+	'gas_consumption',
+	'oil_consumption',
+	'renewables_consumption',
+	'nuclear_consumption',
+)
+
+NMF_FEATURES = (
+	'coal_consumption',
+	'gas_consumption',
+	'oil_consumption',
+	'renewables_consumption',
+	'nuclear_consumption',
+)
+
+ICA_FEATURES = (
+	'coal_co2',
+	'oil_co2',
+	'gas_co2',
+	'cement_co2',
+	'co2_per_capita',
+)
+
+
 def visualize_data_ACP_ICA_NMF(data):
     final_df = data.copy()
-    cleaned_df = pd.read_csv("data/processed/cleaned_data.csv", encoding='latin-1')
-    
 
     intervalle = 5
     final_df['periode_debut'] = (final_df['year'] // intervalle) * intervalle
@@ -13,16 +56,12 @@ def visualize_data_ACP_ICA_NMF(data):
                                 (final_df['periode_debut'] + intervalle - 1).astype(str)
 
 
-    cols_acp = ['population_x', 'gdp_x', 'hdi_value', 'co2_per_capita', 'cumulative_co2']
-    cols_nmf = ['coal_share_energy', 'oil_share_energy', 'gas_share_energy', 'nuclear_share_energy', 'renewables_share_energy']
-    cols_ica = ['coal_co2_per_capita', 'oil_co2_per_capita', 'gas_co2_per_capita', 'cement_co2_per_capita', 'land_use_change_co2_per_capita']
     
     # On regroupe tout et on s'assure que les colonnes existent bien dans le CSV pour éviter les erreurs
-    cols_all = cols_acp + cols_nmf + cols_ica
-    cols_all = [col for col in cols_all if col in final_df.columns]
-    cols_acp = [col for col in cols_acp if col in final_df.columns]
-    cols_nmf = [col for col in cols_nmf if col in final_df.columns]
-    cols_ica = [col for col in cols_ica if col in final_df.columns]
+    cols_all = list(COLUMNS_TO_KEEP)
+    cols_acp = list(PCA_FEATURES)
+    cols_nmf = list(NMF_FEATURES)
+    cols_ica = list(ICA_FEATURES)
 
     # --- 1. Calculs des statistiques ---
     
@@ -99,14 +138,7 @@ def visualize_data_dif_merged_cleaned(data_merged, data_cleaned):
     cleaned_df = data_cleaned.copy()
     
     # 2. Identification des colonnes communes numériques à comparer
-    colonnes_communes = [
-        'co2_per_capita', 'coal_co2', 'oil_co2', 'gas_co2', 'cement_co2', 
-        'coal_consumption', 'gas_consumption', 'oil_consumption', 
-        'renewables_consumption', 'nuclear_consumption', 'hdi_value'
-    ]
-    
-    # Sécurité : s'assurer que les colonnes existent bien dans les deux df
-    colonnes_communes = [c for c in colonnes_communes if c in final_df.columns and c in cleaned_df.columns]
+    colonnes_communes = list(COLUMNS_TO_KEEP)
 
     # ==========================================
     # ANALYSE 1 : Avant/Après des valeurs manquantes
