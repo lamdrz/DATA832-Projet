@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA, NMF
+from sklearn.decomposition import PCA, NMF, FastICA
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from scipy.stats import kurtosis
 
 from config.logger import get_logger
 
@@ -16,6 +17,10 @@ class DimensionalityReducer:
         ]
         
         self.nmf_features = [
+            ...
+        ]
+        
+        self.ica_features = [
             ...
         ]
 
@@ -65,6 +70,7 @@ class DimensionalityReducer:
         plt.title('Contributions des variables aux Composantes Principales')
         plt.tight_layout()
         plt.show()
+        
         
     def find_optimal_k_nmf(self, df, max_k=10):
         """
@@ -133,5 +139,57 @@ class DimensionalityReducer:
         plt.figure(figsize=(10, 4))
         sns.heatmap(profiles, annot=True, cmap='YlOrRd', center=0)
         plt.title('Composition des profils énergétiques archétypaux (Matrice H)')
+        plt.tight_layout()
+        plt.show()
+        
+        
+    def run_ica(self, df, n_components=3):
+        """
+        Applique l'ICA sur le mix CO2 et calcule le kurtosis des composantes.
+        """
+        logging.info(f"Démarrage de l'ICA avec {n_components} composantes...")
+        
+        features = [f for f in self.ica_features if f in df.columns]
+        df_ica = df.dropna(subset=features)
+        X = df_ica[features]
+
+        # On standardise pour l'ICA (aide l'algorithme à converger)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        # Calcul de l'ICA
+        # max_iter et tolérance augmentés pour éviter les warnings de non-convergence
+        ica = FastICA(n_components=n_components, random_state=42, max_iter=2000, tol=0.01)
+        
+        # S contient les "Sources" indépendantes isolées pour chaque pays
+        S_ica = ica.fit_transform(X_scaled) 
+
+        # --- VÉRIFICATION DU KURTOSIS ---
+        # Le kurtosis normal (Gaussien) est de 0 (avec fisher=True).
+        # Plus on s'éloigne de 0, plus la composante est non-gaussienne (ce qui prouve que l'ICA a fonctionné).
+        kurt_vals = kurtosis(S_ica, axis=0, fisher=True)
+        
+        for i, k_val in enumerate(kurt_vals):
+            logging.info(f"Kurtosis de la Source ICA {i+1} : {k_val:.2f}")
+            if abs(k_val) < 0.5:
+                logging.warning(f"La Source {i+1} est très proche d'une loi normale. L'ICA n'a peut-être pas trouvé une 'vraie' source indépendante ici.")
+
+        return ica, S_ica, features
+
+    def plot_ica_components(self, ica_model, features):
+        """
+        Affiche les poids de la matrice de mélange (mixing) de l'ICA.
+        """
+        # On regarde la matrice components_ qui nous dit comment les sources 
+        # contribuent aux variables d'origine.
+        comp_df = pd.DataFrame(
+            ica_model.components_,
+            columns=features,
+            index=[f'Source {i+1}' for i in range(ica_model.n_components)]
+        )
+
+        plt.figure(figsize=(8, 4))
+        sns.heatmap(comp_df, annot=True, cmap='coolwarm', center=0)
+        plt.title('Poids des variables dans les Sources Indépendantes (ICA)')
         plt.tight_layout()
         plt.show()

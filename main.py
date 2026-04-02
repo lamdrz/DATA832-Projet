@@ -37,6 +37,11 @@ def run_pipeline():
     nmf_model, W, H, nmf_features = reducer.run_nmf(cleaned_data, k=k_choisi)
     if nmf_model is not None:
         reducer.plot_nmf_profiles(nmf_model, nmf_features)
+        
+    ## ICA
+    ica_model, S_ica, ica_features = reducer.run_ica(cleaned_data, n_components=3)
+    if ica_model is not None:
+        reducer.plot_ica_components(ica_model, ica_features)
 
 
 if __name__ == "__main__":
