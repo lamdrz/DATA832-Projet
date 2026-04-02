@@ -10,6 +10,40 @@ class DataProcessing:
     def __init__(self):
         self.target_years = list(TARGET_YEARS)
         self.columns_to_keep = list(COLUMNS_TO_KEEP)
+
+    def _collapse_duplicate_columns(self, df):
+        """
+        Fusionne les colonnes dupliquées issues des merge pandas (_x/_y).
+        - Si les 2 colonnes sont numériques: moyenne ligne par ligne.
+        - Sinon: priorité à la valeur non nulle de _x, puis _y.
+        """
+        for col in list(df.columns):
+            if not col.endswith('_x'):
+                continue
+
+            base_col = col[:-2]
+            col_x = f"{base_col}_x"
+            col_y = f"{base_col}_y"
+
+            if col_y not in df.columns:
+                continue
+
+            is_numeric_pair = (
+                pd.api.types.is_numeric_dtype(df[col_x])
+                and pd.api.types.is_numeric_dtype(df[col_y])
+            )
+
+            if is_numeric_pair:
+                df[base_col] = df[[col_x, col_y]].mean(axis=1, skipna=True)
+            else:
+                df[base_col] = df[col_x].combine_first(df[col_y])
+
+            df = df.drop(columns=[col_x, col_y])
+
+        # Renomme les colonnes restantes suffixées si elles n'ont pas de paire.
+        df = df.rename(columns=lambda c: c[:-2] if c.endswith('_x') else c)
+        df = df.rename(columns=lambda c: c[:-2] if c.endswith('_y') else c)
+        return df
       
     def keep_only_countries(self, df, iso_col="iso_code"):
         df = df[df[iso_col].notna()]
@@ -47,6 +81,8 @@ class DataProcessing:
             on=['iso_code', 'year'],
             how='inner'
         )
+
+        final_df = self._collapse_duplicate_columns(final_df)
         
         final_df = final_df.reset_index(drop=True)
         return final_df
