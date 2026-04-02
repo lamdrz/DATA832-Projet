@@ -1,6 +1,7 @@
 import logging
 import os
 from config.logger import get_logger
+from src.models.climateJustice import ClimateJusticeVisualizer
 from src.models.clustering import ClusteringAnalyzer
 from src.data.loader import DataLoader
 from src.data.processor import DataProcessing
@@ -49,6 +50,32 @@ def run_pipeline():
 
     #On trace Coude + Silhouette pour choisir le bon nombre de clusters
     cluster_analyzer.find_optimal_kmeans(X_scaled, max_k=8)
+    # Affiche les graphiques BIC/AIC pour GMM
+    cluster_analyzer.find_optimal_gmm(X_scaled, max_k=8)
+
+    # Affiche le K-distance plot pour DBSCAN
+    cluster_analyzer.plot_k_distance(X_scaled, min_samples=5)
+
+    K_OPTIMAL = 4         # Choisi d'après Coude / Silhouette / BIC / AIC
+    EPS_OPTIMAL = 0.8     # Choisi d'après la cassure du K-distance plot
+    MIN_SAMPLES = 5
+
+    labels_km, labels_gmm, labels_dbs = cluster_analyzer.run_all_clusterings_and_evaluate(
+        X_scaled, y_hdi, y_gdp, 
+        k_chosen=K_OPTIMAL, 
+        eps_chosen=EPS_OPTIMAL, 
+        min_samples_chosen=MIN_SAMPLES
+    )
+
+    viz = ClimateJusticeVisualizer()
+
+    #Créer l'indice, voir le Top 10 et la carte
+    # On utilise df_cluster qui contient toutes nos colonnes brutes alignées
+    df_with_index = viz.create_and_visualize_index(df_cluster)
+    
+    # 3. Générer le t-SNE et le comparer avec un de vos clusterings (par exemple K-Means)
+    # labels_km correspond à la variable qui contient vos prédictions K-Means de l'étape précédente
+    viz.plot_tsne_comparisons(X_scaled, df_with_index, labels_cluster=labels_km)
 
 
 if __name__ == "__main__":

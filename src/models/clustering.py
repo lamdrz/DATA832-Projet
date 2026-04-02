@@ -8,6 +8,10 @@ from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 from config.logger import get_logger
 from config.settings import PCA_FEATURES
+from sklearn.neighbors import NearestNeighbors
+from sklearn.mixture import GaussianMixture
+from sklearn.cluster import DBSCAN
+import time
 
 logging = get_logger(__name__)
 
@@ -86,3 +90,92 @@ class ClusteringAnalyzer:
         ari = adjusted_rand_score(true_labels, predicted_labels)
         logging.info(f"ARI pour {model_name} : {ari:.4f}")
         return ari
+
+    def find_optimal_gmm(self, X_scaled, max_k=10):
+        """
+        Recherche du meilleur K pour GMM en utilisant les critères d'information BIC et AIC.
+        Plus la valeur est basse, meilleur est le modèle.
+        """
+        logging.info("Recherche du K optimal pour GMM (AIC/BIC)...")
+        bics = []
+        aics = []
+        k_range = range(2, max_k + 1)
+
+        for k in k_range:
+            gmm = GaussianMixture(n_components=k, random_state=42, n_init=5)
+            gmm.fit(X_scaled)
+            bics.append(gmm.bic(X_scaled))
+            aics.append(gmm.aic(X_scaled))
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(k_range, bics, label='BIC', marker='o')
+        plt.plot(k_range, aics, label='AIC', marker='s')
+        plt.title("Critères d'Information GMM (AIC / BIC)")
+        plt.xlabel("Nombre de composantes (K)")
+        plt.ylabel("Valeur du score (Plus bas = Meilleur)")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    def plot_k_distance(self, X_scaled, min_samples=5):
+        """
+        Affiche le k-distance plot pour aider à choisir le paramètre 'eps' de DBSCAN.
+        On cherche le 'coude' sur la courbe des distances.
+        """
+        logging.info("Génération du K-distance plot pour DBSCAN...")
+        neighbors = NearestNeighbors(n_neighbors=min_samples)
+        neighbors_fit = neighbors.fit(X_scaled)
+        distances, indices = neighbors_fit.kneighbors(X_scaled)
+        
+        # On trie les distances du k-ème voisin le plus proche
+        distances = np.sort(distances[:, min_samples-1], axis=0)
+        
+        plt.figure(figsize=(8, 5))
+        plt.plot(distances)
+        plt.title(f"K-Distance Plot (min_samples={min_samples})")
+        plt.xlabel("Points triés par distance")
+        plt.ylabel(f"Distance au {min_samples}ème voisin le plus proche")
+        plt.grid(True)
+        plt.show()
+
+    def run_all_clusterings_and_evaluate(self, X_scaled, y_hdi, y_gdp, k_chosen, eps_chosen, min_samples_chosen):
+        """
+        ÉTAPE 2 : Applique K-Means, GMM et DBSCAN, puis évalue avec l'ARI.
+        """
+        logging.info(f"--- Lancement des Clusterings avec K={k_chosen} et eps={eps_chosen} ---")
+        
+        # 1. K-Means
+        kmeans = KMeans(n_clusters=k_chosen, random_state=42, n_init=10)
+        labels_kmeans = kmeans.fit_predict(X_scaled)
+        
+        # 2. Gaussian Mixture Model (GMM)
+        gmm = GaussianMixture(n_components=k_chosen, random_state=42, n_init=5)
+        labels_gmm = gmm.fit_predict(X_scaled)
+        
+        # 3. DBSCAN
+        dbscan = DBSCAN(eps=eps_chosen, min_samples=min_samples_chosen)
+        labels_dbscan = dbscan.fit_predict(X_scaled)
+        
+        # Log du nombre de clusters trouvés par DBSCAN (excluant le bruit : -1)
+        n_clusters_dbscan = len(set(labels_dbscan)) - (1 if -1 in labels_dbscan else 0)
+        logging.info(f"DBSCAN a trouvé {n_clusters_dbscan} clusters (et du bruit).")
+
+        # --- EVALUATION (ARI) ---
+        results = {
+            "K-Means": labels_kmeans,
+            "GMM": labels_gmm,
+            "DBSCAN": labels_dbscan
+        }
+        
+        print("\n" + "="*50)
+        print("RÉSULTATS DE L'ALIGNEMENT (ADJUSTED RAND INDEX)")
+        print("="*50)
+        print(f"{'Modèle':<15} | {'ARI (vs HDI)':<15} | {'ARI (vs GDP Class)':<15}")
+        print("-" * 50)
+        
+        for name, preds in results.items():
+            ari_hdi = adjusted_rand_score(y_hdi, preds)
+            ari_gdp = adjusted_rand_score(y_gdp, preds)
+            print(f"{name:<15} | {ari_hdi:<15.4f} | {ari_gdp:<15.4f}")
+            
+        return labels_kmeans, labels_gmm, labels_dbscan

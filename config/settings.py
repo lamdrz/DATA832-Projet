@@ -15,7 +15,7 @@ COLUMNS_TO_KEEP = (
     'gas_share_energy', 'oil_share_energy', 'nuclear_share_energy','renewables_share_energy',
 
 	# Pour l'ACP et le clustering
-	'hdi_value', 'hdicode', 'gdp_per_capita', 'population_x', 'energy_per_capita_x'
+	'hdi_value', 'hdicode', 'gdp_per_capita', 'population_x', 'energy_per_capita_x', 'cumulative_co2'
 )
 
 PCA_FEATURES = (
