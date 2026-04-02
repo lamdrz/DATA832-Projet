@@ -1,5 +1,5 @@
 import plotly.express as px
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from config.logger import get_logger
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -15,51 +15,31 @@ class ClimateJusticeVisualizer:
 
     def create_and_visualize_index(self, df):
         """
-        Calcule un indice COMPOSITE de justice climatique basé sur de multiples caractéristiques.
+        Calcule l'Indice de Justice Climatique par le ratio brut (CO2 par point de HDI).
         """
-        logging.info("Création de l'Indice Composite de Justice Climatique...")
+        logging.info("Création de l'Indice de Justice Climatique (Ratio brut)...")
         df_viz = df.copy()
         
-        # 1. Sélection des variables pour l'indice
-        resp_cols = ['co2_per_capita', 'cumulative_co2'] 
-        cap_cols = ['hdi_value', 'gdp_per_capita']
+        # 1. Calcul du Ratio : Tonnes de CO2 émises pour 1 point de HDI
+        df_viz['justice_index'] = df_viz['co2_per_capita'] / df_viz['hdi_value']
         
-        # Sécurité : on s'assure qu'elles existent
-        all_cols = resp_cols + cap_cols
-        for col in all_cols:
-            if col not in df_viz.columns:
-                logging.error(f"Colonne manquante pour l'indice : {col}")
-                return df_viz
-                
-        # 2. Normalisation Min-Max (tout entre 0 et 1 pour pouvoir les additionner)
-        scaler = MinMaxScaler()
-        df_scaled = pd.DataFrame(scaler.fit_transform(df_viz[all_cols]), columns=all_cols, index=df_viz.index)
-        
-        # 3. Calcul des "Super-Scores"
-        # Responsabilité : Moyenne des émissions (actuelles et historiques)
-        df_viz['Score_Responsabilite'] = df_scaled[resp_cols].mean(axis=1)
-        
-        # Capacité : Moyenne de la richesse et du développement
-        df_viz['Score_Capacite'] = df_scaled[cap_cols].mean(axis=1)
-        
-        # 4. INDICE FINAL : Le Décalage (Responsabilité - Capacité)
-        df_viz['justice_index'] = df_viz['Score_Responsabilite'] - df_viz['Score_Capacite']
-        
-        # On fait la moyenne par pays pour la visualisation globale
-        df_mean = df_viz.groupby(['country', 'iso_code'])[['justice_index', 'Score_Responsabilite', 'Score_Capacite']].mean().reset_index()
+        # On fait la moyenne par pays sur toute la période
+        df_mean = df_viz.groupby(['country', 'iso_code'])[['justice_index', 'co2_per_capita', 'hdi_value']].mean().reset_index()
         df_mean = df_mean.sort_values(by='justice_index', ascending=False)
         
         # --- VISUALISATION 1 : CLASSEMENT (TOP 10 et FLOP 10) ---
         fig, ax = plt.subplots(1, 2, figsize=(14, 5))
         
+        # Les pires débiteurs (Ceux qui polluent le plus proportionnellement à leur HDI)
         sns.barplot(data=df_mean.head(10), y='country', x='justice_index', palette='Reds_r', ax=ax[0])
-        ax[0].set_title("Les 10 pires 'Débiteurs Climatiques'")
-        ax[0].set_xlabel("Indice de Décalage (Responsabilité > Capacité)")
+        ax[0].set_title("Les 10 'Débiteurs Climatiques'")
+        ax[0].set_xlabel("Tonnes de CO2 par point de HDI")
         ax[0].set_ylabel("")
         
-        sns.barplot(data=df_mean.tail(10), y='country', x='justice_index', palette='Greens_r', ax=ax[1])
+        # Les plus vulnérables / sobres
+        sns.barplot(data=df_mean.tail(10), y='country', x='justice_index', palette='Greens', ax=ax[1])
         ax[1].set_title("Les 10 plus 'Vulnérables / Sobres'")
-        ax[1].set_xlabel("Indice de Décalage (Capacité > Responsabilité)")
+        ax[1].set_xlabel("Tonnes de CO2 par point de HDI")
         ax[1].set_ylabel("")
         
         plt.tight_layout()
@@ -68,19 +48,19 @@ class ClimateJusticeVisualizer:
         # --- VISUALISATION 2 : CARTE MONDIALE INTERACTIVE ---
         logging.info("Génération de la carte mondiale...")
         
-        # Pour Plotly, une échelle divergente (Bleu-Blanc-Rouge) est parfaite car notre indice va de -1 à +1
-        val_max = abs(df_mean['justice_index']).max()
+        # Astuce : On coupe l'échelle des couleurs au 95ème centile pour que les "super-pollueurs" 
+        # (comme le Qatar ou Trinité-et-Tobago) ne rendent pas le reste du monde tout blanc.
+        val_max_color = df_mean['justice_index'].quantile(0.95)
         
         fig_map = px.choropleth(
             df_mean,
             locations="iso_code",
             color="justice_index",
             hover_name="country",
-            color_continuous_scale=px.colors.diverging.RdYlBu_r, # Rouge pour débiteurs, Bleu pour vulnérables
-            range_color=[-val_max, val_max], # On centre le blanc sur 0
-            color_continuous_midpoint=0,
-            title="Carte de l'Indice Composite de Justice Climatique",
-            labels={'justice_index': 'Indice (Rouge=Dette, Bleu=Vulnérabilité)'}
+            color_continuous_scale="YlOrRd", # Jaune (Faible) vers Rouge foncé (Fort)
+            range_color=[0, val_max_color],  
+            title="Carte du Décalage Climatique (CO2 par point de HDI)",
+            labels={'justice_index': 'Score de Décalage'}
         )
         fig_map.update_layout(geo=dict(showframe=False, showcoastlines=True, projection_type='equirectangular'))
         fig_map.show()
