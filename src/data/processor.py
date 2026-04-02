@@ -1,10 +1,9 @@
-import os
 import pandas as pd
 from sklearn.impute import KNNImputer
 
 from config.logger import get_logger
 
-logging = get_logger(__name__, os.path.dirname(__file__))
+logging = get_logger(__name__)
 
 class DataProcessing:      
     def __init__(self):
@@ -63,40 +62,27 @@ class DataProcessing:
         final_df = final_df.reset_index(drop=True)
         return final_df
     
-    # Généré par IA
-    # ToDo : Nettoyer et garder que ce qui nous intéresse dans la fonction
     def clean_merged_data(self, df):
         """
         Nettoie le dataset fusionné pour le rendre compatible avec scikit-learn.
         """
-        logging.info(f"Shape initial du dataset fusionné : {df.shape}")
+        logging.info(f"Shape : {df.shape}")
         
-        # ÉTAPE 1 : Filtrage temporel
+        # On garde que la fenetre qui nous intéresse
         df_clean = df[df['year'].isin(self.target_years)].copy()
         
-        # ÉTAPE 2 : Sélection des colonnes
-        # On ne garde que les colonnes de self.columns_to_keep qui existent vraiment dans df
+        # On garde que les colonnes qui nous intéressent
         cols_present = [c for c in self.columns_to_keep if c in df_clean.columns]
         df_clean = df_clean[cols_present]
         
-        # ÉTAPE 3 : Nettoyage drastique des lignes irrécupérables
-        # On supprime les lignes sans code pays (souvent des agrégats régionaux)
-        df_clean = df_clean.dropna(subset=['iso_code'])
-        
-        # Le hdicode est notre "pseudo-label" pour évaluer le clustering (Low, Medium, High...)
-        # Si on ne l'a pas, le pays ne nous sert à rien pour l'étape 1 du clustering.
-        if 'hdicode' in df_clean.columns:
-            df_clean = df_clean.dropna(subset=['hdicode', 'hdi_value'])
+        # hdicode est indispensable : c'est le pseudo-label pour le clustering (Low, Medium, High, Very High)
+        if 'hdicode' in df_clean.columns: df_clean = df_clean.dropna(subset=['hdicode', 'hdi_value'])
             
-        logging.info(f"Shape après filtrage temporel et suppression des lignes critiques : {df_clean.shape}")
+        logging.info(f"Shape clean : {df_clean.shape}")
         
-        # ÉTAPE 4 : Imputation des NaN restants
-        # On isole les colonnes numériques (on ne peut pas imputer du texte comme le nom du pays)
-        numeric_cols = df_clean.select_dtypes(include=['float64', 'int64']).columns
-        
-        # On retire 'year' des colonnes à imputer pour ne pas fausser les dates
-        if 'year' in numeric_cols:
-            numeric_cols = numeric_cols.drop('year')
+        # Imputation des NaN restants
+        numeric_cols = df_clean.select_dtypes(include=['float64', 'int64']).columns # On ne peut pas imputer du texte
+        if 'year' in numeric_cols: numeric_cols = numeric_cols.drop('year')
             
         # Utilisation de KNNImputer :
         # Au lieu de mettre bêtement la moyenne mondiale, il regarde les 5 "voisins" 
@@ -106,10 +92,10 @@ class DataProcessing:
         
         # Vérification finale
         remaining_nans = df_clean.isna().sum().sum()
-        logging.info(f"Shape final prêt pour le ML : {df_clean.shape}")
-        logging.info(f"Nombre total de NaN restants : {remaining_nans}")
+        logging.info(f"Shape final : {df_clean.shape}")
+        logging.info(f"NaN restants : {remaining_nans}")
         
         if remaining_nans > 0:
-            logging.warning("Attention, il reste des NaN dans les colonnes catégorielles !")
+            logging.warning("Il reste des NaN")
             
         return df_clean
