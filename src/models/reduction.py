@@ -7,22 +7,15 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from scipy.stats import kurtosis
 
 from config.logger import get_logger
+from config.settings import PCA_FEATURES, NMF_FEATURES, ICA_FEATURES
 
 logging = get_logger(__name__)
 
 class DimensionalityReducer:
     def __init__(self):
-        self.pca_features = [
-            ...
-        ]
-        
-        self.nmf_features = [
-            ...
-        ]
-        
-        self.ica_features = [
-            ...
-        ]
+        self.pca_features = list(PCA_FEATURES)
+        self.nmf_features = list(NMF_FEATURES)
+        self.ica_features = list(ICA_FEATURES)
 
     def run_pca(self, df):
         logging.info("Démarrage de l'ACP...")

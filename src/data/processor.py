@@ -2,25 +2,14 @@ import pandas as pd
 from sklearn.impute import KNNImputer
 
 from config.logger import get_logger
+from config.settings import TARGET_YEARS, COLUMNS_TO_KEEP
 
 logging = get_logger(__name__)
 
 class DataProcessing:      
     def __init__(self):
-        self.target_years = list(range(2010, 2020))
-        self.columns_to_keep = [
-            'country', 'iso_code', 'year',
-            
-            # Pour l'ICA
-            'co2', 'co2_per_capita', 'coal_co2', 'oil_co2', 'gas_co2', 'cement_co2',
-            
-            # Pour la NMF (>= 0)
-            'primary_energy_consumption', 'coal_consumption', 'gas_consumption', 
-            'oil_consumption', 'renewables_consumption', 'nuclear_consumption',
-            
-            # Pour l'ACP et le clustering
-            'hdi_value', 'hdicode', 'gdpPercap', 'lifeExp', 'pop'
-        ]
+        self.target_years = list(TARGET_YEARS)
+        self.columns_to_keep = list(COLUMNS_TO_KEEP)
       
     def keep_only_countries(self, df, iso_col="iso_code"):
         df = df[df[iso_col].notna()]
