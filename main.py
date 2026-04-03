@@ -67,6 +67,14 @@ def run_pipeline():
         min_samples_chosen=MIN_SAMPLES
     )
 
+    cluster_analyzer.evaluate_clustering(y_hdi, labels_km, model_name="K-Means", label_name="HDI")
+    cluster_analyzer.evaluate_clustering(y_gdp, labels_km, model_name="K-Means", label_name="GDP Class")
+    cluster_analyzer.evaluate_clustering(y_hdi, labels_gmm, model_name="GMM", label_name="HDI")
+    cluster_analyzer.evaluate_clustering(y_gdp, labels_gmm, model_name="GMM", label_name="GDP Class")
+    cluster_analyzer.evaluate_clustering(y_hdi, labels_dbs, model_name="DBSCAN", label_name="HDI")
+    cluster_analyzer.evaluate_clustering(y_gdp, labels_dbs, model_name="DBSCAN", label_name="GDP Class")
+
+
     viz = ClimateJusticeVisualizer()
 
     #Créer l'indice, voir le Top 10 et la carte
@@ -76,6 +84,10 @@ def run_pipeline():
     # 3. Générer le t-SNE et le comparer avec un de vos clusterings (par exemple K-Means)
     # labels_km correspond à la variable qui contient vos prédictions K-Means de l'étape précédente
     viz.plot_tsne_comparisons(X_scaled, df_with_index, labels_cluster=labels_km)
+
+    viz.plot_tsne_comparisons(X_scaled, df_with_index, labels_cluster=labels_gmm)
+
+    viz.plot_tsne_comparisons(X_scaled, df_with_index, labels_cluster=labels_dbs)
 
 
 if __name__ == "__main__":

@@ -83,12 +83,31 @@ class ClusteringAnalyzer:
         plt.tight_layout()
         plt.show()
 
-    def evaluate_clustering(self, true_labels, predicted_labels, model_name="Modèle"):
+    def evaluate_clustering(self, true_labels, predicted_labels, model_name="Modèle", label_name="Vérité Terrain"):
         """
-        Évalue le clustering via l'Indice de Rand Ajusté (ARI).
+        Évalue le clustering via l'Indice de Rand Ajusté (ARI) et affiche la matrice d'alignement.
         """
+        # 1. Calcul de l'ARI global
         ari = adjusted_rand_score(true_labels, predicted_labels)
-        logging.info(f"ARI pour {model_name} : {ari:.4f}")
+        logging.info(f"ARI pour {model_name} vs {label_name} : {ari:.4f}")
+
+        # 2. Création du tableau croisé (compte le nombre de pays par case)
+        crosstab = pd.crosstab(
+            true_labels, 
+            predicted_labels, 
+            rownames=[f'Vrais Labels ({label_name})'], 
+            colnames=[f'Clusters Prédits ({model_name})']
+        )
+
+        # 3. Visualisation avec Seaborn (Heatmap)
+        plt.figure(figsize=(8, 5))
+        # annot=True pour afficher les nombres, fmt='d' pour des entiers (pas de virgules)
+        sns.heatmap(crosstab, annot=True, fmt='d', cmap='Blues', cbar=True)
+        
+        plt.title(f"Alignement : {model_name} vs {label_name}\n(Score ARI : {ari:.4f})", fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        plt.show()
+
         return ari
 
     def find_optimal_gmm(self, X_scaled, max_k=10):
@@ -140,7 +159,7 @@ class ClusteringAnalyzer:
 
     def run_all_clusterings_and_evaluate(self, X_scaled, y_hdi, y_gdp, k_chosen, eps_chosen, min_samples_chosen):
         """
-        ÉTAPE 2 : Applique K-Means, GMM et DBSCAN, puis évalue avec l'ARI.
+        ÉTAPE 2 : Applique K-Means, GMM et DBSCAN, puis évalue avec l'ARI et affiche un graphique.
         """
         logging.info(f"--- Lancement des Clusterings avec K={k_chosen} et eps={eps_chosen} ---")
         
@@ -167,15 +186,48 @@ class ClusteringAnalyzer:
             "DBSCAN": labels_dbscan
         }
         
-        print("\n" + "="*50)
-        print("RÉSULTATS DE L'ALIGNEMENT (ADJUSTED RAND INDEX)")
-        print("="*50)
-        print(f"{'Modèle':<15} | {'ARI (vs HDI)':<15} | {'ARI (vs GDP Class)':<15}")
-        print("-" * 50)
         
+        # Liste pour stocker les données pour le graphique
+        viz_data = []
+
         for name, preds in results.items():
             ari_hdi = adjusted_rand_score(y_hdi, preds)
             ari_gdp = adjusted_rand_score(y_gdp, preds)
             print(f"{name:<15} | {ari_hdi:<15.4f} | {ari_gdp:<15.4f}")
+            
+            # Ajout des données pour Seaborn
+            viz_data.append({"Modèle": name, "Référence": "HDI (Développement)", "Score ARI": ari_hdi})
+            viz_data.append({"Modèle": name, "Référence": "GDP Class (Richesse)", "Score ARI": ari_gdp})
+            
+        # --- VISUALISATION GRAPHIQUE DES SCORES ---
+        df_viz = pd.DataFrame(viz_data)
+        
+        plt.figure(figsize=(10, 6))
+        # Utilisation d'un barplot groupé (hue="Référence")
+        ax = sns.barplot(data=df_viz, x="Modèle", y="Score ARI", hue="Référence", palette=["#3498db", "#2ecc71"])
+        
+        plt.title("Performances des algorithmes de Clustering (Adjusted Rand Index)", fontsize=14, fontweight='bold')
+        plt.ylabel("Score ARI (Plus proche de 1 = Meilleur)")
+        plt.xlabel("Algorithmes Non Supervisés")
+        
+        # Ajout d'une ligne horizontale à 0 pour bien voir les scores négatifs (DBSCAN)
+        plt.axhline(0, color='black', linewidth=1.2, linestyle='--')
+        
+        # Ajout des valeurs exactes au-dessus de chaque barre pour plus de clarté
+        for p in ax.patches:
+            hauteur = p.get_height()
+            # On décale le texte vers le bas si la valeur est négative
+            offset = 5 if hauteur >= 0 else -15
+            ax.annotate(f"{hauteur:.3f}", 
+                        (p.get_x() + p.get_width() / 2., hauteur),
+                        ha='center', va='center', 
+                        xytext=(0, offset), 
+                        textcoords='offset points',
+                        fontsize=10)
+            
+        # Placement de la légende à l'extérieur
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.show()
             
         return labels_kmeans, labels_gmm, labels_dbscan
